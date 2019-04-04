@@ -11,6 +11,7 @@ hub_username = os.getenv('DOCKER_HUB_USERNAME')
 hub_password = os.getenv('DOCKER_HUB_PASSWORD')
 repository = os.getenv('REPOSITORY')
 delete_older_than_in_days = int(os.getenv('DELETE_OLDER_THAN_IN_DAYS'))
+default_page_size = int(os.getenv('DEFAULT_PAGE_SIZE'))
 
 hub_endpoints = {
     'login': 'https://hub.docker.com/v2/users/login/',
@@ -34,7 +35,7 @@ def build_headers(auth_token):
     }
 
 
-def get_tags(auth_token, page_size=100, page=1):
+def get_tags(auth_token, page_size=default_page_size, page=1):
     """Get tags from Docker Hub for page and with page_size."""
     headers = build_headers(auth_token=auth_token)
     url = hub_endpoints['list_tags'] + '?page_size={}&page={}'.format(page_size, page)
@@ -81,7 +82,7 @@ auth_token = get_auth_token(hub_username, hub_password)
 
 tags_response = get_tags(auth_token)
 total_items = int(tags_response['count'])
-total_pages = math.ceil(total_items / 100)
+total_pages = math.ceil(total_items / default_page_size)
 
 current_page = total_pages
 while current_page > 0:
