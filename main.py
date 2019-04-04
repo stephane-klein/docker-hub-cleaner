@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import math
 
 from dotenv import load_dotenv
 import requests
@@ -33,12 +34,10 @@ def build_headers(auth_token):
     }
 
 
-def get_tags(auth_token, page_url=None):
+def get_tags(auth_token, page_size=100, page=1):
+    """Get tags from Docker Hub for page and with page_size."""
     headers = build_headers(auth_token=auth_token)
-    if page_url:
-        url = page_url
-    else:
-        url = hub_endpoints['list_tags'] + '?page_size=100'
+    url = hub_endpoints['list_tags'] + '?page_size={}&page={}'.format(page_size, page)
 
     r = requests.get(url, headers=headers)
     r.raise_for_status()
@@ -46,32 +45,27 @@ def get_tags(auth_token, page_url=None):
     return r.json()
 
 
-def delete_tag(auth_token, tag):
+def delete_tag(auth_token, tag, days_old):
     """Delete a tag from Docker Hub."""
     headers = build_headers(auth_token=auth_token)
     r = requests.delete(hub_endpoints['delete_tag'].format(tag=tag), headers=headers)
 
     r.raise_for_status()
-    print('Deleted tag {}'.format(tag))
+    print('Deleted tag {} that is {} days old.'.format(tag, days_old))
 
 
-def process_tags(auth_token, next_page_url=None):
-    """Get tags from Docker Hub and check for tags older tags to be deleted."""
-    tags_response = get_tags(auth_token, page_url=next_page_url)
+def delete_tags_older_than(tags, days_old):
+    """Process tags older tags to be deleted."""
 
     # Process all the results
-    if tags_response['results']:
-        for tag_entry in tags_response['results']:
+    if tags:
+        for tag_entry in tags:
             # print('Tag name: ', tag_entry['name'], 'last_updated:', tag_entry['last_updated'])
             only_date = tag_entry['last_updated'][:10]
             datetime_object = datetime.strptime(only_date, '%Y-%m-%d')
             datetime_delta = datetime.now() - datetime_object
-            if datetime_delta.days > delete_older_than_in_days:
-                delete_tag(auth_token=auth_token, tag=tag_entry['name'])
-
-    # Check if there are more pages to process.
-    if tags_response['next']:
-        process_tags(auth_token=auth_token, next_page_url=tags_response['next'])
+            if datetime_delta.days > days_old:
+                delete_tag(auth_token=auth_token, tag=tag_entry['name'], days_old=datetime_delta.days)
 
 
 # Main app begins
@@ -84,8 +78,15 @@ print(
 )
 
 auth_token = get_auth_token(hub_username, hub_password)
-process_tags(auth_token=auth_token)
 
+tags_response = get_tags(auth_token)
+total_items = int(tags_response['count'])
+total_pages = math.ceil(total_items / 100)
 
-
-
+current_page = total_pages
+while current_page > 0:
+    tags_response = get_tags(auth_token=auth_token, page=current_page)
+    if tags_response['results']:
+        delete_tags_older_than(tags=tags_response['results'], days_old=delete_older_than_in_days)
+    print('Page {} processed!'.format(current_page))
+    current_page = current_page - 1
