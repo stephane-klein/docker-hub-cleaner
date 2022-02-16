@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import sys
 import math
+import re
 
 import requests
 
@@ -30,6 +31,11 @@ parser.add_argument(
     type=int,
     default=os.environ.get("DELETE_OLDER_THAN_IN_DAYS", 30),
     help="Delete tags older than X in days (default 30 days)"
+)
+parser.add_argument(
+    "--exclude-tags",
+    default=os.environ.get("EXCLUDE_TAGS", ""),
+    help="Tags to never delete, support regex syntax (default: '')"
 )
 
 args = parser.parse_args()
@@ -74,11 +80,14 @@ def get_tags(auth_token, page_size=default_page_size, page=1):
 
 def delete_tag(auth_token, tag, days_old):
     """Delete a tag from Docker Hub."""
-    headers = build_headers(auth_token=auth_token)
-    r = requests.delete(hub_endpoints["delete_tag"].format(tag=tag), headers=headers)
+    if (not re.match(args.exclude_tags, tag)):
+        headers = build_headers(auth_token=auth_token)
+        r = requests.delete(hub_endpoints["delete_tag"].format(tag=tag), headers=headers)
 
-    r.raise_for_status()
-    print("Deleted tag {} that is {} days old.".format(tag, days_old))
+        r.raise_for_status()
+        print("Deleted tag {} that is {} days old.".format(tag, days_old))
+    else:
+        print("Skip deleted tag {} that is {} days old.".format(tag, days_old))
 
 
 def delete_tags_older_than(tags, days_old):

@@ -20,7 +20,8 @@ $ pipenv run ./main.py \
     --username=example \
     --password=secret \
     --repository=example/project1 \
-    --older-in-days=10
+    --older-in-days=10 \
+    --exclude-tags="(develop|prod)"
 Going to process docker Hub repository example/project1 and delete all tags older than 10 days.
 Deleted tag ba4640839e7bc4743762ce39d72da71e0771d801 that is 439 days old.
 Deleted tag 4d6607c4496e8f49e261963f3e81f1d6eb62464d that is 439 days old.
