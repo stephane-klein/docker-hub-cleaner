@@ -60,10 +60,10 @@ def build_headers(auth_token):
     return {"authorization": "Bearer " + auth_token, "content-type": "application/json"}
 
 
-def get_tags(auth_token, page_size=default_page_size, page=1):
+def get_tags(repository, auth_token, page_size=default_page_size, page=1):
     """Get tags from Docker Hub for page and with page_size."""
     r = requests.get(
-        "https://hub.docker.com/v2/repositories/{}/tags?page_size={}&page={}".format(args.repository, page_size, page),
+        "https://hub.docker.com/v2/repositories/{}/tags?page_size={}&page={}".format(repository, page_size, page),
         headers=build_headers(auth_token=auth_token)
     )
     r.raise_for_status()
@@ -71,11 +71,11 @@ def get_tags(auth_token, page_size=default_page_size, page=1):
     return r.json()
 
 
-def delete_tag(auth_token, tag, days_old):
+def delete_tag(repository, auth_token, tag, days_old):
     """Delete a tag from Docker Hub."""
     if (not re.match(args.exclude_tags, tag)):
         r = requests.delete(
-            "https://hub.docker.com/v2/repositories/{}/tags/{}".format(args.repository, tag),
+            "https://hub.docker.com/v2/repositories/{}/tags/{}".format(repository, tag),
             headers=build_headers(auth_token=auth_token)
         )
 
@@ -85,7 +85,7 @@ def delete_tag(auth_token, tag, days_old):
         print("Skip deleted tag {} that is {} days old.".format(tag, days_old))
 
 
-def delete_tags_older_than(tags, days_old):
+def delete_tags_older_than(repository, tags, days_old):
     """Process tags older tags to be deleted."""
 
     # Process all the results
@@ -96,6 +96,7 @@ def delete_tags_older_than(tags, days_old):
             datetime_delta = datetime.now() - datetime_object
             if datetime_delta.days > days_old:
                 delete_tag(
+                    repository,
                     auth_token=auth_token,
                     tag=tag_entry["name"],
                     days_old=datetime_delta.days,
@@ -111,15 +112,16 @@ if __name__ == "__main__":
 
     auth_token = get_auth_token(args.username, args.password)
 
-    tags_response = get_tags(auth_token)
+    tags_response = get_tags(args.repository, auth_token)
     total_items = int(tags_response["count"])
     total_pages = math.ceil(total_items / default_page_size)
 
     current_page = total_pages
     while current_page > 0:
-        tags_response = get_tags(auth_token=auth_token, page=current_page)
+        tags_response = get_tags(args.repository, auth_token=auth_token, page=current_page)
         if tags_response["results"]:
             delete_tags_older_than(
+                args.repository,
                 tags=tags_response["results"],
                 days_old=args.older_in_days
             )
