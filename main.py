@@ -1,23 +1,50 @@
+#!/usr/bin/env python3
+import argparse
 from datetime import datetime
 import os
+import sys
 import math
 
-from dotenv import load_dotenv
 import requests
 
+default_page_size = 100
 
-load_dotenv()
-hub_username = os.getenv("DOCKER_HUB_USERNAME")
-hub_password = os.getenv("DOCKER_HUB_PASSWORD")
-repository = os.getenv("REPOSITORY")
-delete_older_than_in_days = int(os.getenv("DELETE_OLDER_THAN_IN_DAYS"))
-default_page_size = int(os.getenv("DEFAULT_PAGE_SIZE"))
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description="Delete old Docker Image tags in Docker Hub",
+    epilog="""
+    Usage example:
+
+    main.py \\
+        --username=example \\
+        --password=secret \\
+        --repository=example/project1 \\
+        --older-in-days=10
+    """
+)
+parser.add_argument("--username", default=os.environ.get("DOCKER_HUB_USERNAME"))
+parser.add_argument("--password", default=os.environ.get("DOCKER_HUB_PASSWORD"))
+parser.add_argument("--repository", default=os.environ.get("REPOSITORY"))
+parser.add_argument(
+    "--older-in-days",
+    type=int,
+    default=os.environ.get("DELETE_OLDER_THAN_IN_DAYS", 30),
+    help="Delete tags older than X in days (default 30 days)"
+)
+
+args = parser.parse_args()
+if (
+    (not args.username) or
+    (not args.password) or
+    (not args.repository)
+):
+    sys.exit(parser.print_usage())
 
 hub_endpoints = {
     "login": "https://hub.docker.com/v2/users/login/",
-    "list_tags": "https://hub.docker.com/v2/repositories/" + repository + "/tags",
+    "list_tags": "https://hub.docker.com/v2/repositories/" + args.repository + "/tags",
     "delete_tag": "https://hub.docker.com/v2/repositories/"
-    + repository
+    + args.repository
     + "/tags/{tag}",
 }
 
@@ -72,26 +99,26 @@ def delete_tags_older_than(tags, days_old):
                 )
 
 
-# Main app begins
-
-print(
-    "Going to process docker Hub repository {} and delete all tags older than {} days.".format(
-        repository, delete_older_than_in_days
-    )
-)
-
-auth_token = get_auth_token(hub_username, hub_password)
-
-tags_response = get_tags(auth_token)
-total_items = int(tags_response["count"])
-total_pages = math.ceil(total_items / default_page_size)
-
-current_page = total_pages
-while current_page > 0:
-    tags_response = get_tags(auth_token=auth_token, page=current_page)
-    if tags_response["results"]:
-        delete_tags_older_than(
-            tags=tags_response["results"], days_old=delete_older_than_in_days
+if __name__ == "__main__":
+    print(
+        "Going to process docker Hub repository {} and delete all tags older than {} days.".format(
+            args.repository, args.older_in_days
         )
-    print("Page {} processed!".format(current_page))
-    current_page = current_page - 1
+    )
+
+    auth_token = get_auth_token(args.username, args.password)
+
+    tags_response = get_tags(auth_token)
+    total_items = int(tags_response["count"])
+    total_pages = math.ceil(total_items / default_page_size)
+
+    current_page = total_pages
+    while current_page > 0:
+        tags_response = get_tags(auth_token=auth_token, page=current_page)
+        if tags_response["results"]:
+            delete_tags_older_than(
+                tags=tags_response["results"],
+                days_old=args.older_in_days
+            )
+        print("Page {} processed!".format(current_page))
+        current_page = current_page - 1
