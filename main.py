@@ -46,18 +46,11 @@ if (
 ):
     sys.exit(parser.print_usage())
 
-hub_endpoints = {
-    "login": "https://hub.docker.com/v2/users/login/",
-    "list_tags": "https://hub.docker.com/v2/repositories/" + args.repository + "/tags",
-    "delete_tag": "https://hub.docker.com/v2/repositories/"
-    + args.repository
-    + "/tags/{tag}",
-}
 
 
 def get_auth_token(username, password):
     params = {"username": username, "password": password}
-    response = requests.post(hub_endpoints["login"], data=params)
+    response = requests.post("https://hub.docker.com/v2/users/login/", data=params)
     response.raise_for_status()
 
     return response.json()["token"]
@@ -69,10 +62,10 @@ def build_headers(auth_token):
 
 def get_tags(auth_token, page_size=default_page_size, page=1):
     """Get tags from Docker Hub for page and with page_size."""
-    headers = build_headers(auth_token=auth_token)
-    url = hub_endpoints["list_tags"] + "?page_size={}&page={}".format(page_size, page)
-
-    r = requests.get(url, headers=headers)
+    r = requests.get(
+        "https://hub.docker.com/v2/repositories/{}/tags?page_size={}&page={}".format(args.repository, page_size, page),
+        headers=build_headers(auth_token=auth_token)
+    )
     r.raise_for_status()
 
     return r.json()
@@ -81,8 +74,10 @@ def get_tags(auth_token, page_size=default_page_size, page=1):
 def delete_tag(auth_token, tag, days_old):
     """Delete a tag from Docker Hub."""
     if (not re.match(args.exclude_tags, tag)):
-        headers = build_headers(auth_token=auth_token)
-        r = requests.delete(hub_endpoints["delete_tag"].format(tag=tag), headers=headers)
+        r = requests.delete(
+            "https://hub.docker.com/v2/repositories/{}/tags/{}".format(args.repository, tag),
+            headers=build_headers(auth_token=auth_token)
+        )
 
         r.raise_for_status()
         print("Deleted tag {} that is {} days old.".format(tag, days_old))
