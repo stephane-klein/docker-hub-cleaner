@@ -91,7 +91,6 @@ def delete_tags_older_than(tags, days_old):
     # Process all the results
     if tags:
         for tag_entry in tags:
-            # print('Tag name: ', tag_entry['name'], 'last_updated:', tag_entry['last_updated'])
             only_date = tag_entry["last_updated"][:10]
             datetime_object = datetime.strptime(only_date, "%Y-%m-%d")
             datetime_delta = datetime.now() - datetime_object
