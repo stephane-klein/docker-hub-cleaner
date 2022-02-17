@@ -10,43 +10,6 @@ import requests
 
 default_page_size = 100
 
-parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="Delete old Docker Image tags in Docker Hub",
-    epilog="""
-    Usage example:
-
-    main.py \\
-        --username=example \\
-        --password=secret \\
-        --repository=example/project1 \\
-        --older-in-days=10
-    """
-)
-parser.add_argument("--username", default=os.environ.get("DOCKER_HUB_USERNAME"))
-parser.add_argument("--password", default=os.environ.get("DOCKER_HUB_PASSWORD"))
-parser.add_argument("--repository", default=os.environ.get("REPOSITORY"))
-parser.add_argument(
-    "--older-in-days",
-    type=int,
-    default=os.environ.get("DELETE_OLDER_THAN_IN_DAYS", 30),
-    help="Delete tags older than X in days (default 30 days)"
-)
-parser.add_argument(
-    "--exclude-tags",
-    default=os.environ.get("EXCLUDE_TAGS", ""),
-    help="Tags to never delete, support regex syntax (default: '')"
-)
-
-args = parser.parse_args()
-if (
-    (not args.username) or
-    (not args.password) or
-    (not args.repository)
-):
-    sys.exit(parser.print_usage())
-
-
 
 def get_auth_token(username, password):
     params = {"username": username, "password": password}
@@ -105,13 +68,48 @@ def delete_tags_older_than(repository, tags, days_old, exclude_tags):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Delete old Docker Image tags in Docker Hub",
+        epilog="""
+        Usage example:
+
+        main.py \\
+            --username=example \\
+            --password=secret \\
+            --repository=example/project1 \\
+            --older-in-days=10
+        """
+    )
+    parser.add_argument("--username", default=os.environ.get("DOCKER_HUB_USERNAME"))
+    parser.add_argument("--password", default=os.environ.get("DOCKER_HUB_PASSWORD"))
+    parser.add_argument("--repository", default=os.environ.get("REPOSITORY"))
+    parser.add_argument(
+        "--older-in-days",
+        type=int,
+        default=os.environ.get("DELETE_OLDER_THAN_IN_DAYS", 30),
+        help="Delete tags older than X in days (default 30 days)"
+    )
+    parser.add_argument(
+        "--exclude-tags",
+        default=os.environ.get("EXCLUDE_TAGS", ""),
+        help="Tags to never delete, support regex syntax (default: '')"
+    )
+
+    args = parser.parse_args()
+    if (
+        (not args.username) or
+        (not args.password)
+    ):
+        sys.exit(parser.print_usage())
+
+    auth_token = get_auth_token(args.username, args.password)
+
     print(
         "Going to process docker Hub repository {} and delete all tags older than {} days.".format(
             args.repository, args.older_in_days
         )
     )
-
-    auth_token = get_auth_token(args.username, args.password)
 
     tags_response = get_tags(args.repository, auth_token)
     total_items = int(tags_response["count"])
