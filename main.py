@@ -26,21 +26,22 @@ def build_headers(auth_token):
 def get_repos(username, auth_token):
     r = requests.get(
         "https://hub.docker.com/v2/repositories/{}/?page_size=10000".format(username),
-        headers=build_headers(auth_token=auth_token)
+        headers=build_headers(auth_token=auth_token),
     )
     r.raise_for_status()
 
     return [
-        '{}/{}'.format(row['namespace'], row['name'])
-        for row in r.json()['results']
+        "{}/{}".format(row["namespace"], row["name"]) for row in r.json()["results"]
     ]
 
 
 def get_tags(repository, auth_token, page_size=default_page_size, page=1):
     """Get tags from Docker Hub for page and with page_size."""
     r = requests.get(
-        "https://hub.docker.com/v2/repositories/{}/tags?page_size={}&page={}".format(repository, page_size, page),
-        headers=build_headers(auth_token=auth_token)
+        "https://hub.docker.com/v2/repositories/{}/tags?page_size={}&page={}".format(
+            repository, page_size, page
+        ),
+        headers=build_headers(auth_token=auth_token),
     )
     r.raise_for_status()
 
@@ -49,10 +50,10 @@ def get_tags(repository, auth_token, page_size=default_page_size, page=1):
 
 def delete_tag(repository, auth_token, tag, days_old, exclude_tags):
     """Delete a tag from Docker Hub."""
-    if (not re.match(exclude_tags, tag)):
+    if not re.match(exclude_tags, tag):
         r = requests.delete(
             "https://hub.docker.com/v2/repositories/{}/tags/{}".format(repository, tag),
-            headers=build_headers(auth_token=auth_token)
+            headers=build_headers(auth_token=auth_token),
         )
 
         r.raise_for_status()
@@ -76,7 +77,7 @@ def delete_tags_older_than(repository, tags, days_old, exclude_tags):
                     auth_token=auth_token,
                     tag=tag_entry["name"],
                     days_old=datetime_delta.days,
-                    exclude_tags=exclude_tags
+                    exclude_tags=exclude_tags,
                 )
 
 
@@ -105,32 +106,29 @@ if __name__ == "__main__":
             --password=secret \\
             --older-in-days=10 \\
             --exclude-tags="(develop|prod)"
-        """
+        """,
     )
     parser.add_argument("--username", default=os.environ.get("DOCKER_HUB_USERNAME"))
     parser.add_argument("--password", default=os.environ.get("DOCKER_HUB_PASSWORD"))
     parser.add_argument(
         "--repository",
         default=os.environ.get("REPOSITORY"),
-        help="Repository to clean, this parameter can contain several repository separated by comma. If empty, the script clean all repositories. The syntax is username/imagename (default '')"
+        help="Repository to clean, this parameter can contain several repository separated by comma. If empty, the script clean all repositories. The syntax is username/imagename (default '')",
     )
     parser.add_argument(
         "--older-in-days",
         type=int,
         default=os.environ.get("DELETE_OLDER_THAN_IN_DAYS", 30),
-        help="Delete tags older than X in days (default 30 days)"
+        help="Delete tags older than X in days (default 30 days)",
     )
     parser.add_argument(
         "--exclude-tags",
         default=os.environ.get("EXCLUDE_TAGS", ""),
-        help="Tags to never delete, support regex syntax (default: '')"
+        help="Tags to never delete, support regex syntax (default: '')",
     )
 
     args = parser.parse_args()
-    if (
-        (not args.username) or
-        (not args.password)
-    ):
+    if (not args.username) or (not args.password):
         sys.exit(parser.print_usage())
 
     auth_token = get_auth_token(args.username, args.password)
@@ -159,7 +157,7 @@ if __name__ == "__main__":
                     repos,
                     tags=tags_response["results"],
                     days_old=args.older_in_days,
-                    exclude_tags=args.exclude_tags
+                    exclude_tags=args.exclude_tags,
                 )
             print("Page {} processed!".format(current_page))
             current_page = current_page - 1
