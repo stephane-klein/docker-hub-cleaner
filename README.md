@@ -16,6 +16,53 @@ pipenv install
 ## How to use
 
 ```
+$ pipenv run ./main.py  --help
+Loading .env environment variables...
+usage: main.py [-h] [--username USERNAME] [--password PASSWORD]
+               [--repository REPOSITORY] [--older-in-days OLDER_IN_DAYS]
+               [--exclude-tags EXCLUDE_TAGS]
+
+Delete old Docker Image tags in Docker Hub
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --username USERNAME
+  --password PASSWORD
+  --repository REPOSITORY
+                        Repository to clean, this parameter can contain
+                        several repository separated by comma. If empty, the
+                        script clean all repositories. The syntax is
+                        username/imagename (default '')
+  --older-in-days OLDER_IN_DAYS
+                        Delete tags older than X in days (default 30 days)
+  --exclude-tags EXCLUDE_TAGS
+                        Tags to never delete, support regex syntax (default:
+                        '')
+
+        Usage example:
+
+        main.py \
+            --username=example \
+            --password=secret \
+            --repository=example/project1 \
+            --older-in-days=10
+
+        main.py \
+            --username=example \
+            --password=secret \
+            --repository=example/project1,example/project2 \
+            --older-in-days=10 \
+            --exclude-tags="(develop|prod)"
+
+        main.py \
+            --username=example \
+            --password=secret \
+            --older-in-days=10 \
+            --exclude-tags="(develop|prod)"
+```
+
+
+```
 $ pipenv run ./main.py \
     --username=example \
     --password=secret \

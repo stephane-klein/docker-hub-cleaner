@@ -23,6 +23,19 @@ def build_headers(auth_token):
     return {"authorization": "Bearer " + auth_token, "content-type": "application/json"}
 
 
+def get_repos(username, auth_token):
+    r = requests.get(
+        "https://hub.docker.com/v2/repositories/{}/?page_size=10000".format(username),
+        headers=build_headers(auth_token=auth_token)
+    )
+    r.raise_for_status()
+
+    return [
+        '{}/{}'.format(row['namespace'], row['name'])
+        for row in r.json()['results']
+    ]
+
+
 def get_tags(repository, auth_token, page_size=default_page_size, page=1):
     """Get tags from Docker Hub for page and with page_size."""
     r = requests.get(
@@ -79,11 +92,28 @@ if __name__ == "__main__":
             --password=secret \\
             --repository=example/project1 \\
             --older-in-days=10
+
+        main.py \\
+            --username=example \\
+            --password=secret \\
+            --repository=example/project1,example/project2 \\
+            --older-in-days=10 \\
+            --exclude-tags="(develop|prod)"
+
+        main.py \\
+            --username=example \\
+            --password=secret \\
+            --older-in-days=10 \\
+            --exclude-tags="(develop|prod)"
         """
     )
     parser.add_argument("--username", default=os.environ.get("DOCKER_HUB_USERNAME"))
     parser.add_argument("--password", default=os.environ.get("DOCKER_HUB_PASSWORD"))
-    parser.add_argument("--repository", default=os.environ.get("REPOSITORY"))
+    parser.add_argument(
+        "--repository",
+        default=os.environ.get("REPOSITORY"),
+        help="Repository to clean, this parameter can contain several repository separated by comma. If empty, the script clean all repositories. The syntax is username/imagename (default '')"
+    )
     parser.add_argument(
         "--older-in-days",
         type=int,
@@ -105,25 +135,31 @@ if __name__ == "__main__":
 
     auth_token = get_auth_token(args.username, args.password)
 
-    print(
-        "Going to process docker Hub repository {} and delete all tags older than {} days.".format(
-            args.repository, args.older_in_days
-        )
-    )
+    if args.repository:
+        repos_list = args.repository.split(",")
+    else:
+        repos_list = get_repos(args.username, auth_token)
 
-    tags_response = get_tags(args.repository, auth_token)
-    total_items = int(tags_response["count"])
-    total_pages = math.ceil(total_items / default_page_size)
-
-    current_page = total_pages
-    while current_page > 0:
-        tags_response = get_tags(args.repository, auth_token=auth_token, page=current_page)
-        if tags_response["results"]:
-            delete_tags_older_than(
-                args.repository,
-                tags=tags_response["results"],
-                days_old=args.older_in_days,
-                exclude_tags=args.exclude_tags
+    for repos in repos_list:
+        print(
+            "Going to process docker Hub repository {} and delete all tags older than {} days.".format(
+                repos, args.older_in_days
             )
-        print("Page {} processed!".format(current_page))
-        current_page = current_page - 1
+        )
+
+        tags_response = get_tags(repos, auth_token)
+        total_items = int(tags_response["count"])
+        total_pages = math.ceil(total_items / default_page_size)
+
+        current_page = total_pages
+        while current_page > 0:
+            tags_response = get_tags(repos, auth_token=auth_token, page=current_page)
+            if tags_response["results"]:
+                delete_tags_older_than(
+                    repos,
+                    tags=tags_response["results"],
+                    days_old=args.older_in_days,
+                    exclude_tags=args.exclude_tags
+                )
+            print("Page {} processed!".format(current_page))
+            current_page = current_page - 1
