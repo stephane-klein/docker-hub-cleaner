@@ -71,9 +71,9 @@ def get_tags(repository, auth_token, page_size=default_page_size, page=1):
     return r.json()
 
 
-def delete_tag(repository, auth_token, tag, days_old):
+def delete_tag(repository, auth_token, tag, days_old, exclude_tags):
     """Delete a tag from Docker Hub."""
-    if (not re.match(args.exclude_tags, tag)):
+    if (not re.match(exclude_tags, tag)):
         r = requests.delete(
             "https://hub.docker.com/v2/repositories/{}/tags/{}".format(repository, tag),
             headers=build_headers(auth_token=auth_token)
@@ -85,7 +85,7 @@ def delete_tag(repository, auth_token, tag, days_old):
         print("Skip deleted tag {} that is {} days old.".format(tag, days_old))
 
 
-def delete_tags_older_than(repository, tags, days_old):
+def delete_tags_older_than(repository, tags, days_old, exclude_tags):
     """Process tags older tags to be deleted."""
 
     # Process all the results
@@ -100,6 +100,7 @@ def delete_tags_older_than(repository, tags, days_old):
                     auth_token=auth_token,
                     tag=tag_entry["name"],
                     days_old=datetime_delta.days,
+                    exclude_tags=exclude_tags
                 )
 
 
@@ -123,7 +124,8 @@ if __name__ == "__main__":
             delete_tags_older_than(
                 args.repository,
                 tags=tags_response["results"],
-                days_old=args.older_in_days
+                days_old=args.older_in_days,
+                exclude_tags=args.exclude_tags
             )
         print("Page {} processed!".format(current_page))
         current_page = current_page - 1
