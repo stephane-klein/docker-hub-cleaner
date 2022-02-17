@@ -1,0 +1,5 @@
+version: '3.8'
+services:
+  docker-hub-cleaner:
+    build: .
+    image: stephaneklein/docker-hub-cleaner
