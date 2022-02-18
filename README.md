@@ -1,6 +1,7 @@
 # Docker Hub Cleaner
 
-This is a script to delete old docker image tags in [Docker Hub](https://cloud.docker.com) that are not used anymore.
+This is a script to delete old docker image tags in [Docker Hub](https://cloud.docker.com) that are not used anymore and
+delete inactive and untagged docker images.
 
 This script was built to solve the case where images are being built on every dependency change
 but we are only using them for CI purposes, so they become outdated quite fast.
@@ -20,7 +21,8 @@ $ pipenv run ./main.py  --help
 Loading .env environment variables...
 usage: main.py [-h] [--username USERNAME] [--password PASSWORD]
                [--repository REPOSITORY] [--older-in-days OLDER_IN_DAYS]
-               [--exclude-tags EXCLUDE_TAGS]
+               [--exclude-tags EXCLUDE_TAGS] [--not-clean-inactive-images]
+               [--progress]
 
 Delete old Docker Image tags in Docker Hub
 
@@ -38,6 +40,8 @@ optional arguments:
   --exclude-tags EXCLUDE_TAGS
                         Tags to never delete, support regex syntax (default:
                         '')
+  --not-clean-inactive-images
+  --progress
 
         Usage example:
 

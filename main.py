@@ -5,8 +5,10 @@ import os
 import sys
 import math
 import re
+import json
 
 import requests
+from tqdm import tqdm
 
 default_page_size = 100
 
@@ -81,6 +83,55 @@ def delete_tags_older_than(repository, tags, days_old, exclude_tags):
                 )
 
 
+def clean_inactive_images(repository, auth_token, progress):
+    bar = None
+    total = None
+    while True:
+        image_list_response = requests.get(
+            "https://hub.docker.com/v2/namespaces/{namespace}/repositories/{repository}/images?status=inactive&currently_tagged=false&page_size=25".format(
+                namespace=repository.split('/')[0],
+                repository=repository.split('/')[1]
+            ),
+            headers=build_headers(auth_token=auth_token),
+        )
+        image_list_response.raise_for_status()
+
+        if total is None:
+            total = image_list_response.json()["count"]
+            if total == 0:
+                break
+
+            print("Going to delete {} inactive and untagged images".format(total))
+
+        if (progress and (bar is None)):
+            bar = tqdm(total=total)
+
+        delete_image_response = requests.post(
+            "https://hub.docker.com/v2/namespaces/{namespace}/delete-images".format(
+                namespace=repository.split('/')[0]
+            ),
+            data=json.dumps({
+                "manifests": [
+                    {
+                        "repository": row["repository"],
+                        "digest": row["digest"]
+                    }
+                    for row in image_list_response.json()["results"]
+                ],
+            }),
+            headers=build_headers(auth_token=auth_token)
+        )
+        if delete_image_response.status_code != 200:
+            print(delete_image_response.json())
+
+        delete_image_response.raise_for_status()
+        if progress:
+            bar.update(int(delete_image_response.json()['metrics']['manifest_deletes']))
+
+        if image_list_response.json()["next"] is None:
+            break
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -126,6 +177,16 @@ if __name__ == "__main__":
         default=os.environ.get("EXCLUDE_TAGS", ""),
         help="Tags to never delete, support regex syntax (default: '')",
     )
+    parser.add_argument(
+        '--not-clean-inactive-images',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--progress',
+        action='store_true',
+        default=False
+    )
 
     args = parser.parse_args()
     if (not args.username) or (not args.password):
@@ -159,5 +220,7 @@ if __name__ == "__main__":
                     days_old=args.older_in_days,
                     exclude_tags=args.exclude_tags,
                 )
-            print("Page {} processed!".format(current_page))
             current_page = current_page - 1
+
+        if args.not_clean_inactive_images is False:
+            clean_inactive_images(repos, auth_token, args.progress)
